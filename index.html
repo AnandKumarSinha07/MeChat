@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Application</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body
+    class="bg-gradient-to-br from-blue-50 to-emerald-50 font-roboto flex items-center justify-center min-h-screen p-4 sm:p-6 lg:p-8"
+  >
+    <div
+      class="bg-white shadow-xl rounded-3xl p-6 sm:p-8 w-full max-w-2xl border border-gray-100 backdrop-blur-sm bg-opacity-90"
+    >
+      <h2 class="text-center text-3xl font-bold text-blue-800 mb-6">
+        Chat Application 💬
+      </h2>
+
+      <div
+        class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-6"
+      >
+        <div class="relative flex-1 w-full">
+          <input
+            type="text"
+            placeholder="Enter a room name"
+            id="join_room"
+            class="w-full bg-blue-50 text-gray-700 p-4 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-300 pr-12"
+          />
+          <div
+            class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+        </div>
+        <button
+          class="w-full sm:w-auto px-6 py-4 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-md"
+          onclick="joinRoom(); Timer()"
+        >
+          Join Room
+        </button>
+      </div>
+
+      <div class="timer_box text-center mb-4"></div>
+
+      <div
+        id="messagebox"
+        class="h-96 bg-gray-900 rounded-2xl mb-6 overflow-y-auto flex flex-col p-4 space-y-3 custom-scrollbar"
+      ></div>
+
+      <div class="flex gap-3">
+        <input
+          type="text"
+          id="input_box"
+          placeholder="Type your message..."
+          class="flex-1 p-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-100 text-gray-900 font-medium"
+        />
+        <button
+          onclick="sendMessage()"
+          class="bg-emerald-600 px-6 py-4 rounded-xl text-white font-semibold hover:bg-emerald-700 transition-colors duration-300 shadow-md"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+
+    <style>
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #333;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #4ade80;
+        border-radius: 10px;
+        border: 2px solid #333;
+      }
+    </style>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      let roomid = null;
+
+      socket.on("connect", () => {
+        console.log("socket connected ", socket.connected);
+      });
+
+      const messagebox = document.getElementById("messagebox");
+      const meesageValue = document.getElementById("input_box");
+      const roomId = document.getElementById("join_room");
+
+      function sendMessage() {
+        const value = meesageValue.value.trim();
+        if (value === "") return;
+
+        const element = document.createElement("div");
+        element.className =
+          "bg-emerald-500 text-white text-base px-4 py-2 rounded-2xl max-w-[70%] ml-auto my-1 shadow-lg break-words";
+        element.textContent = value;
+        messagebox.appendChild(element);
+        messagebox.scrollTop = messagebox.scrollHeight;
+
+        socket.emit("message", { room: roomid, msg: value });
+        meesageValue.value = "";
+      }
+
+      function Timer() {
+        const timerBox = document.querySelector(".timer_box");
+        timerBox.innerHTML = "";
+
+        if (roomId.value) {
+          const newDiv = document.createElement("div");
+          newDiv.className = "text-blue-600 font-bold text-lg animate-pulse";
+          timerBox.appendChild(newDiv);
+
+          let timer = 40;
+
+          function updateCount() {
+            if (timer >= 0) {
+              newDiv.innerText = `Joining room in ${timer} seconds...`;
+              timer--;
+              setTimeout(updateCount, 1000);
+            }
+          }
+          updateCount();
+        } else {
+          alert("Please enter a room name to join!");
+        }
+      }
+
+      function joinRoom() {
+        const roomvalue = roomId.value.trim();
+        if (roomvalue === "") return;
+        roomid = roomvalue;
+        socket.emit("join-room", {
+          roomid: roomid,
+          msg: `A user wants to join`,
+        });
+      }
+
+      socket.on("user-joined", (msg) => {
+        const element = document.createElement("div");
+        element.className =
+          "bg-yellow-400 text-black text-base px-4 py-2 rounded-xl max-w-[50%] mr-auto my-1 shadow";
+        element.textContent = msg;
+        messagebox.appendChild(element);
+      });
+
+      socket.on("new-message", (data) => {
+        const element = document.createElement("div");
+        element.className =
+          "bg-blue-700 text-gray-100 text-white px-4 py-2 rounded-2xl max-w-[70%] mr-auto my-1 shadow-lg break-words";
+        element.textContent = data;
+        messagebox.appendChild(element);
+        messagebox.scrollTop = messagebox.scrollHeight;
+      });
+
+      meesageValue.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+    </script>
+  </body>
+</html>
